@@ -46,20 +46,20 @@ static const int TCP_PORT = 8080;
 // 串口端口: 优先环境变量 SERIAL_PORT, 其次 /dev/ttyAMA0
 static std::string serial_port_env()
 {
-    if (const char *env = getenv("SERIAL_PORT"); env && env[0])
+    if (const char *env = getenv("SERIAL_PORT"); env && env[0])//getenv是cstdlib中的函数，用于获取环境变量，SERTAL_PORT是树莓派到STM32的串口
         return std::string(env);
     return std::string("/dev/ttyAMA0");
 }
 
-static std::atomic<bool> g_running{true};
+static std::atomic<bool> g_running{true};//atomic是原子操作，这个bool类型可以被多个线程同时读
 static CSerialPort g_serial;
 
 // 串口断开期间的待发送队列(按序补发)
-static std::deque<std::string> g_pending;
-static const size_t MAX_PENDING = 256;
+static std::deque<std::string> g_pending;//双端队列
+static const size_t MAX_PENDING = 256;//size_t是无符号整数类型，头文件cstdint
 
 // 串口重开尝试的节流(避免每次循环都打印打开失败)
-static time_t g_last_open_try = 0;
+static time_t g_last_open_try = 0;//time_t是存时间戳的类型，头文件ctime
 
 static void on_sigint(int) { g_running = false; }
 
@@ -70,19 +70,20 @@ static bool open_serial()
 
     // 节流: 最多每 2 秒尝试重开一次
     time_t now = time(nullptr);
+//串口重开判断：小于2秒不重开
     if (now - g_last_open_try < 2)
         return false;
     g_last_open_try = now;
 
     std::string port = serial_port_env();
-    if (access(port.c_str(), F_OK) != 0) {
-        std::vector<SerialPortInfo> list = CSerialPortInfo::availablePortInfos();
+    if (access(port.c_str(), F_OK) != 0) {  //access判断路径是否存在，有没有访问权限。返回值0：成立，-1：失败;c_str是string的成员函数，能把string类型转化为char*类型；F_OK参数看文件是否存在
+        std::vector<SerialPortInfo> list = CSerialPortInfo::availablePortInfos();//扫描所有可用串口并返回列表
         if (list.empty()) {
-            printf("[serial] no available port (SERIAL_PORT=%s not found)\n", port.c_str());
+            printf("[serial] no available port (SERIAL_PORT=%s not found)\n", port.c_str());//%s是占位符，输出路径
             return false;
         }
-        port = list[0].portName();
-        printf("[serial] %s not found, fallback to %s\n", serial_port_env().c_str(), port.c_str());
+        port = list[0].portName();//默认取第一个
+        printf("[serial] %s not found, fallback to %s\n", serial_port_env().c_str(), port.c_str());//没找到，默认取第一个串口
     }
 
     g_serial.init(port.c_str(), BAUDRATE);
@@ -99,7 +100,7 @@ static bool open_serial()
     return true;
 }
 
-// 组帧: payload 包含末尾 \n, 与 Python 原版一致
+// 组帧: payload 包含末尾 \n, 与 Python 原版一致，格式为帧头 + 长度 +payload + 校验和
 static std::vector<uint8_t> make_frame(const std::string &payload)
 {
     const uint8_t header = 0xAA;
