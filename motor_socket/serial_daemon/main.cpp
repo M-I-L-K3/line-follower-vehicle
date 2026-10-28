@@ -210,7 +210,7 @@ int main()
 
         sockaddr_in cli{};
         socklen_t cli_len = sizeof(cli);
-        int conn = accept(server, reinterpret_cast<sockaddr *>(&cli), &cli_len);
+        int conn = accept(server, reinterpret_cast<sockaddr *>(&cli), &cli_len);//接收通讯连接
         if (conn < 0) {
             if (g_running) perror("accept");
             break;
@@ -238,7 +238,7 @@ int main()
             if (cr == 0)
                 continue; // 超时, 回到循环头检查退出标志
 
-            ssize_t n = recv(conn, buf, sizeof(buf), 0);
+            ssize_t n = recv(conn, buf, sizeof(buf), 0);//接收数据
             if (n <= 0) {
                 printf("[tcp] client disconnected\n");
                 client_ok = false;
